@@ -38,6 +38,7 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (lovelaceValue)
@@ -76,11 +77,12 @@ type RedeemerType = Input
 
 {-# INLINEABLE headValidator #-}
 headValidator ::
+  CurrencySymbol ->
   State ->
   Input ->
   ScriptContext ->
   Bool
-headValidator oldState input ctx =
+headValidator ponderaPolicyId oldState input ctx =
   case (oldState, input) of
     (Initial{contestationPeriod, parties, headId}, CollectCom) ->
       checkCollectCom ctx (contestationPeriod, parties, headId)
@@ -91,7 +93,7 @@ headValidator oldState input ctx =
     (Open openDatum, Decrement redeemer) ->
       checkDecrement ctx openDatum redeemer
     (Open openDatum, Close redeemer) ->
-      checkClose ctx openDatum redeemer
+      checkClose ponderaPolicyId ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
@@ -375,13 +377,14 @@ checkDecrement ctx openBefore redeemer =
 
 -- | Verify a close transaction.
 checkClose ::
+  CurrencySymbol ->
   ScriptContext ->
   -- | Open state before the close
   OpenDatum ->
   -- | Type of close transition.
   CloseRedeemer ->
   Bool
-checkClose ctx openBefore redeemer =
+checkClose ponderaPolicyId ctx openBefore redeemer =
   mustNotMintOrBurn txInfo
     && hasBoundedValidity
     && checkDeadline
@@ -391,6 +394,7 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustHavePonderaReferenceInput
  where
   OpenDatum
     { parties
@@ -477,6 +481,37 @@ checkClose ctx openBefore redeemer =
               parties
               (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
+
+  mustHavePonderaReferenceInput =
+    traceIfFalse $(errorCode PonderaReferenceInputMissing) $
+      case findPonderaReferenceInput (txInfoReferenceInputs txInfo) of
+        Just snapshotHashFromNFT ->
+          traceIfFalse $(errorCode PonderaSnapshotHashMismatch) $
+            snapshotHashFromNFT == utxoHash'
+        Nothing -> False
+
+  findPonderaReferenceInput :: [TxInInfo] -> Maybe Hash
+  findPonderaReferenceInput refInputs =
+    case L.find hasPonderaNFT refInputs of
+      Just TxInInfo{txInInfoResolved} ->
+        extractSnapshotHashFromNFT (txOutValue txInInfoResolved)
+      Nothing -> Nothing
+
+  hasPonderaNFT :: TxInInfo -> Bool
+  hasPonderaNFT TxInInfo{txInInfoResolved} =
+    let Value val = txOutValue txInInfoResolved
+     in case AssocMap.lookup ponderaPolicyId val of
+          Just tokens -> not (L.null (AssocMap.toList tokens))
+          Nothing -> False
+
+  extractSnapshotHashFromNFT :: Value -> Maybe Hash
+  extractSnapshotHashFromNFT (Value val) =
+    case AssocMap.lookup ponderaPolicyId val of
+      Just tokens ->
+        case AssocMap.toList tokens of
+          [(TokenName snapshotHash, 1)] -> Just snapshotHash
+          _ -> Nothing
+      Nothing -> Nothing
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
@@ -799,14 +834,26 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
 
+-- | Unapplied validator where the Pondora policy ID is still a parameter
+unappliedValidator :: CompiledCode (CurrencySymbol -> ValidatorType)
+unappliedValidator =
+  $$(PlutusTx.compile [||\ponderaPolicyId -> wrap ponderaPolicyId||])
+ where
+  wrap policyId = wrapValidator @DatumType @RedeemerType (headValidator policyId)
+
+-- | Get the applied head validator script given a Pondora policy ID
+validatorScript :: CurrencySymbol -> PlutusScript
+validatorScript ponderaPolicyId =
+  PlutusScriptSerialised $ serialiseCompiledCode $
+    unappliedValidator
+      `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 ponderaPolicyId
+
+-- | Legacy validator script for backward compatibility (uses empty policy ID)
+-- This will be removed once Pondora integration is complete
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||wrap headValidator||])
- where
-  wrap = wrapValidator @DatumType @RedeemerType
-
-validatorScript :: PlutusScript
-validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
+  unappliedValidator
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (CurrencySymbol "")
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =
