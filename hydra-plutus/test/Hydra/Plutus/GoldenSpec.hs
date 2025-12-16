@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
-import PlutusLedgerApi.V3 (serialiseCompiledCode)
+import PlutusLedgerApi.V3 (CurrencySymbol (..), serialiseCompiledCode)
 import System.Process.Typed (runProcess_, shell)
 import Test.Hspec.Golden (Golden (..))
 
@@ -47,7 +47,7 @@ spec = do
     actual `shouldBe` existing
 
   it "Head validator script" $
-    goldenScript "vHead" Head.validatorScript
+    goldenScript "vHead" (Head.validatorScript (CurrencySymbol ""))
   it "Head minting policy script" $
     goldenScript "mHead" (PlutusScriptSerialised $ serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
 

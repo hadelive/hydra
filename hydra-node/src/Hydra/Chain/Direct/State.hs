@@ -67,6 +67,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (adjustUTxO)
@@ -397,7 +398,7 @@ abort ::
 abort ctx seedTxIn spendableUTxO committedUTxO = do
   headUTxO <-
     maybe (Left CannotFindHeadOutputToAbort) pure $
-      UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead'
+      UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) utxoOfThisHead'
 
   abortTx committedUTxO scriptRegistry ownVerificationKey headUTxO headTokenScript initials commits
  where
@@ -434,7 +435,7 @@ collect ::
 collect ctx headId headParameters utxoToCollect spendableUTxO = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInCollect{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
+  headUTxO <- UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
   let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitValidatorScript) utxoOfThisHead'
   pure $
     collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
@@ -467,7 +468,7 @@ increment ::
 increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
+  headUTxO <- UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
   (depositedIn, depositedOut) <-
     UTxO.findWithKey
       ( \(TxIn txid _) txout ->
@@ -514,7 +515,7 @@ decrement ::
 decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
+  headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   let balance = txOutValue headOut <> negateValue decommitValue
   when (isNegative balance) $
     Left DecrementValueNegative
@@ -600,7 +601,7 @@ close ::
 close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
-    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
+    UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToClose
   let openThreadOutput =
         OpenThreadOutput
@@ -648,7 +649,7 @@ contest ::
 contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInContest{headId}
   headUTxO <-
-    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
+    UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- checkHeadDatum headUTxO
   incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInContest
@@ -711,7 +712,7 @@ fanout ::
   Either FanoutTxError Tx
 fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
   headUTxO <-
-    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+    UTxO.find (isScriptTxOut (Head.validatorScript (CurrencySymbol ""))) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- checkHeadDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout

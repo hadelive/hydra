@@ -154,7 +154,7 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
+import PlutusLedgerApi.V3 (CurrencySymbol (..), POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
@@ -514,7 +514,7 @@ deriving stock instance Eq Head.ContestRedeemer
 isHeadOutput :: TxOut CtxUTxO -> Bool
 isHeadOutput TxOut{txOutAddress = addr} = addr == headAddress
  where
-  headAddress = mkScriptAddress Fixture.testNetworkId Head.validatorScript
+  headAddress = mkScriptAddress Fixture.testNetworkId (Head.validatorScript (CurrencySymbol ""))
 
 -- | Adds given 'Datum' and corresponding hash to the transaction's scripts.
 -- TODO: As we are creating the `TxOutDatum` from a known datum, passing a `TxOutDatum` is

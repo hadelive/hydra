@@ -21,6 +21,7 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -76,7 +77,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
@@ -121,7 +122,7 @@ observeIncrementTx ::
   Maybe IncrementObservation
 observeIncrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOutput
   -- we need to be able to decode the datum, no need to use it tho
@@ -132,7 +133,7 @@ observeIncrementTx utxo tx = do
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Increment Head.IncrementRedeemer{}) -> do
-      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) (Head.validatorScript (CurrencySymbol ""))
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->

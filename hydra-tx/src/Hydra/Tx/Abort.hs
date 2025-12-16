@@ -15,6 +15,7 @@ import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 
 -- * Creation
 
@@ -60,7 +61,7 @@ abortTx committedUTxO scriptRegistry vk (headInput, initialHeadOutput) headToken
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
 
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -117,7 +118,7 @@ observeAbortTx ::
   Maybe AbortObservation
 observeAbortTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput >>= \case
     Head.Abort -> pure $ AbortObservation headId

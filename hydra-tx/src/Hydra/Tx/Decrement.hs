@@ -18,6 +18,7 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -76,7 +77,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -107,14 +108,14 @@ observeDecrementTx ::
   Maybe DecrementObservation
 observeDecrementTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Open{}, Head.Decrement Head.DecrementRedeemer{numberOfDecommitOutputs}) -> do
-      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) (Head.validatorScript (CurrencySymbol ""))
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       case fromScriptData newHeadDatum of
         Just (Head.Open Head.OpenDatum{version}) ->

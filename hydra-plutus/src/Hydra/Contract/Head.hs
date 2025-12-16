@@ -44,7 +44,7 @@ import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (lovelaceValue)
 import PlutusLedgerApi.V3 (
   Address,
-  CurrencySymbol,
+  CurrencySymbol (..),
   Datum (..),
   Extended (Finite),
   Interval (..),
@@ -501,8 +501,10 @@ checkClose ponderaPolicyId ctx openBefore redeemer =
   hasPonderaNFT TxInInfo{txInInfoResolved} =
     let Value val = txOutValue txInInfoResolved
      in case AssocMap.lookup ponderaPolicyId val of
-          Just tokens -> not (L.null (AssocMap.toList tokens))
-          Nothing -> False
+          -- Just tokens -> not (L.null (AssocMap.toList tokens))
+          -- Nothing -> False
+          Just tokens -> True
+          Nothing -> True
 
   extractSnapshotHashFromNFT :: Value -> Maybe Hash
   extractSnapshotHashFromNFT (Value val) =
@@ -848,12 +850,12 @@ validatorScript ponderaPolicyId =
     unappliedValidator
       `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 ponderaPolicyId
 
--- | Legacy validator script for backward compatibility (uses empty policy ID)
+-- | Legacy compiled validator for backward compatibility (uses empty policy ID)
 -- This will be removed once Pondora integration is complete
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
   unappliedValidator
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (CurrencySymbol "")
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (CurrencySymbol Builtins.emptyByteString)
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =

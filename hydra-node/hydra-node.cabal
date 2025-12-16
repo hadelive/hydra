@@ -144,6 +144,7 @@ library
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
+    , plutus-ledger-api
     , hydra-tx
     , hydra-tx:testlib
     , io-classes                      >=0.3.0.0

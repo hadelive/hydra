@@ -21,6 +21,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusLedgerApi.Common (fromBuiltin)
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.QuickCheck (vectorOf)
@@ -62,12 +63,12 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
   headScriptRef = fst (headReference scriptRegistry)
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
-      (mkScriptAddress networkId Head.validatorScript)
+      (mkScriptAddress networkId (Head.validatorScript (CurrencySymbol "")))
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
       ReferenceScriptNone
@@ -129,14 +130,14 @@ observeCollectComTx ::
   Maybe CollectComObservation
 observeCollectComTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Initial{}, Head.CollectCom) -> do
-      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) (Head.validatorScript (CurrencySymbol ""))
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       utxoHash <- UTxOHash <$> decodeUtxoHash newHeadDatum
       pure

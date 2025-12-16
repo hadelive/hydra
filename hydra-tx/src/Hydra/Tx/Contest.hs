@@ -17,6 +17,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -78,7 +79,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
 
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -167,14 +168,14 @@ observeContestTx ::
   Maybe ContestObservation
 observeContestTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
   headId <- findStateToken headOutput
   case (datum, redeemer) of
     (Head.Closed Head.ClosedDatum{}, Head.Contest{}) -> do
-      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) (Head.validatorScript (CurrencySymbol ""))
       newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
       let (onChainSnapshotNumber, contestationDeadline, contesters) = decodeDatum newHeadDatum
       pure

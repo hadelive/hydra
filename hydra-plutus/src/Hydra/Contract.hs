@@ -13,7 +13,8 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
-import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
+import PlutusLedgerApi.V3 (CurrencySymbol (..), TxId (..), TxOutRef (..), toBuiltin)
+import PlutusTx.Builtins qualified as Builtins
 
 -- | Information about relevant Hydra scripts.
 data HydraScriptCatalogue = HydraScriptCatalogue
@@ -44,8 +45,8 @@ hydraScriptCatalogue =
     , initialScriptSize = scriptSize initialValidatorScript
     , commitScriptHash = scriptHash commitValidatorScript
     , commitScriptSize = scriptSize commitValidatorScript
-    , headScriptHash = scriptHash Head.validatorScript
-    , headScriptSize = scriptSize Head.validatorScript
+    , headScriptHash = scriptHash (Head.validatorScript (CurrencySymbol Builtins.emptyByteString))
+    , headScriptSize = scriptSize (Head.validatorScript (CurrencySymbol Builtins.emptyByteString))
     , depositScriptHash = scriptHash depositValidatorScript
     , depositScriptSize = scriptSize depositValidatorScript
     }

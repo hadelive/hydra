@@ -17,6 +17,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import PlutusLedgerApi.Common (FromData)
 
 -- * Construction
@@ -48,7 +49,7 @@ initTx networkId seedTxIn participants parameters =
 mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
 mkHeadOutput networkId tokenPolicyId datum =
   TxOut
-    (mkScriptAddress networkId Head.validatorScript)
+    (mkScriptAddress networkId (Head.validatorScript (CurrencySymbol "")))
     (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
@@ -139,7 +140,7 @@ observeInitTx tx = do
  where
   matchHeadOutput :: FromData a => TxOut CtxTx -> Maybe (TxOut CtxTx, a)
   matchHeadOutput out = do
-    guard $ isScriptTxOut Head.validatorScript out
+    guard $ isScriptTxOut (Head.validatorScript (CurrencySymbol "")) out
     (out,) <$> (fromScriptData =<< txOutScriptData out)
 
   mintedTokenNames pid =

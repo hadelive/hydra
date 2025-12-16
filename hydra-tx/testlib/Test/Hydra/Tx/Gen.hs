@@ -21,6 +21,7 @@ import GHC.IsList (IsList (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.Crypto (Hash (..))
@@ -336,7 +337,7 @@ genScriptRegistry = do
           )
       , headReference =
           ( TxIn txId' (TxIx 2)
-          , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef (Head.validatorScript (CurrencySymbol ""))}
           )
       }
 

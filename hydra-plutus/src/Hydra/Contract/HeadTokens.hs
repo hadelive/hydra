@@ -38,6 +38,7 @@ import Hydra.Plutus (initialValidatorScript)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
+  CurrencySymbol (..),
   Datum (getDatum),
   OutputDatum (..),
   ScriptContext (..),
@@ -49,6 +50,7 @@ import PlutusLedgerApi.V3 (
   mintValueToMap,
   serialiseCompiledCode,
  )
+import PlutusTx.Builtins qualified as Builtins
 import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
@@ -187,7 +189,7 @@ unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash initialValidatorScript)
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Head.validatorScript)
+    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash (Head.validatorScript (CurrencySymbol Builtins.emptyByteString)))
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> Api.PlutusScript

@@ -45,6 +45,7 @@ import Hydra.Chain.CardanoClient (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (txId)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -133,7 +134,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
  where
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
-      <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
+      <$> [initialValidatorScript, commitValidatorScript, (Head.validatorScript (CurrencySymbol ""))]
 
   -- Loop over all script outputs to create while re-spending the change output.
   -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.

@@ -11,6 +11,7 @@ import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+import PlutusLedgerApi.V3 (CurrencySymbol (..))
 
 -- * Creation
 
@@ -46,7 +47,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
   headScriptRef =
     fst (headReference scriptRegistry)
   headRedeemer =
@@ -91,7 +92,7 @@ observeFanoutTx ::
   Maybe FanoutObservation
 observeFanoutTx utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
-  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  (headInput, headOutput) <- findTxOutByScript inputUTxO (Head.validatorScript (CurrencySymbol ""))
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
