@@ -9,7 +9,7 @@ import Hydra.Prelude
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..))
+import PlutusLedgerApi.V3 (CurrencySymbol (..), POSIXTime (..), PubKeyHash (..))
 import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 import Test.QuickCheck.Instances.ByteString ()
 
@@ -19,6 +19,16 @@ instance Arbitrary BuiltinByteString where
 instance Arbitrary CurrencySymbol where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+instance ToJSON CurrencySymbol where
+  toJSON (CurrencySymbol cs) =
+    Aeson.String (decodeUtf8 $ Base16.encode $ fromBuiltin cs)
+
+instance FromJSON CurrencySymbol where
+  parseJSON = Aeson.withText "CurrencySymbol" $ \hexText ->
+    case Base16.decode $ encodeUtf8 hexText of
+      Left e -> fail e
+      Right bs -> pure $ CurrencySymbol (toBuiltin bs)
 
 instance Arbitrary POSIXTime where
   arbitrary = POSIXTime <$> arbitrary

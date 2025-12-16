@@ -46,18 +46,19 @@ initTx networkId seedTxIn participants parameters =
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
 
-mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutput networkId tokenPolicyId datum =
+mkHeadOutput :: NetworkId -> PolicyId -> CurrencySymbol -> TxOutDatum ctx -> TxOut ctx
+mkHeadOutput networkId tokenPolicyId ponderaCs datum =
   TxOut
-    (mkScriptAddress networkId (Head.validatorScript (CurrencySymbol "")))
+    (mkScriptAddress networkId (Head.validatorScript ponderaCs))
     (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
     datum
     ReferenceScriptNone
 
 mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
-mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
-  mkHeadOutput networkId tokenPolicyId headDatum
+mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties, ponderaPolicyId} =
+  mkHeadOutput networkId tokenPolicyId ponderaCs headDatum
  where
+  ponderaCs = fromMaybe (CurrencySymbol "") ponderaPolicyId
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
   headDatum =
     mkTxOutDatumInline $
@@ -134,7 +135,7 @@ observeInitTx tx = do
     InitObservation
       { headId = mkHeadId pid
       , headSeed = txInToHeadSeed seedTxIn
-      , headParameters = HeadParameters{contestationPeriod, parties}
+      , headParameters = HeadParameters{contestationPeriod, parties, ponderaPolicyId = Nothing}
       , participants = assetNameToOnChainId <$> mintedTokenNames pid
       }
  where

@@ -67,7 +67,7 @@ import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainCo
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
-import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..)) Nothing
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
@@ -98,7 +98,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@CardanoChainTest{} -> do
             -- Scenario
             participants <- loadParticipants [Alice, Bob, Carol]
-            let headParameters = HeadParameters cperiod [alice, bob, carol]
+            let headParameters = HeadParameters cperiod [alice, bob, carol] Nothing
             postTx $ InitTx{participants, headParameters}
             (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
             (bobHeadId, bobHeadSeed) <- bobChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
@@ -132,7 +132,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 aliceUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommitment) (contramap FromFaucet tracer)
 
                 participants <- loadParticipants [Alice, Bob, Carol]
-                let headParameters = HeadParameters cperiod [alice, bob, carol]
+                let headParameters = HeadParameters cperiod [alice, bob, carol] Nothing
                 postTx $ InitTx{participants, headParameters}
                 (aliceHeadId, aliceHeadSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
                 (bobHeadId, bobHeadSeed) <- bobChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
@@ -178,7 +178,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               \bobChain@CardanoChainTest{postTx = bobPostTx} -> do
                 -- Scenario
                 aliceParticipants <- loadParticipants [Carol, Alice]
-                let headParameters = HeadParameters cperiod [alice, carol]
+                let headParameters = HeadParameters cperiod [alice, carol] Nothing
                 alicePostTx $ InitTx{participants = aliceParticipants, headParameters}
                 void $ aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters aliceParticipants
 
@@ -204,7 +204,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -225,7 +225,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -246,7 +246,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -266,7 +266,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -301,7 +301,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
             someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -371,7 +371,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         -- Alice setup
         aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
         participants <- loadParticipants [Alice]
-        let headParameters = HeadParameters cperiod [alice]
+        let headParameters = HeadParameters cperiod [alice] Nothing
         -- Scenario
         tip <- withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
@@ -440,7 +440,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
 
             participants <- loadParticipants [Alice]
-            let headParameters = HeadParameters cperiod [alice]
+            let headParameters = HeadParameters cperiod [alice] Nothing
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
@@ -563,7 +563,7 @@ withDirectChainTest tracer config party action = do
               Right tx -> pure tx
         }
 
-hasInitTxWith :: (HasCallStack, IsTx tx) => HeadParameters -> [OnChainId] -> OnChainTx tx -> IO (HeadId, HeadSeed)
+hasInitTxWith :: (HasCallStack, IsTx tx) => HeadParameters -> [OnChainId] -> OnChainTx tx -> IO (HeadId, HeadSeed) Nothing
 hasInitTxWith HeadParameters{contestationPeriod = expectedContestationPeriod, parties = expectedParties} expectedParticipants = \case
   OnInitTx{headId, headSeed, headParameters = HeadParameters{contestationPeriod, parties}, participants} -> do
     expectedParticipants `shouldMatchList` participants

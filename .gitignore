@@ -42,3 +42,4 @@ new-headers.txt
 
 # Blockfrost environment
 blockfrost-project.txt
+**/*.bak

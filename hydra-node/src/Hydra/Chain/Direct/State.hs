@@ -988,6 +988,7 @@ data HydraContext = HydraContext
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod
   , ctxScriptRegistry :: ScriptRegistry
+  , ctxPonderaPolicyId :: Maybe CurrencySymbol
   }
   deriving stock (Show)
 
@@ -1000,8 +1001,12 @@ ctxParticipants = map verificationKeyToOnChainId . ctxVerificationKeys
 ctxHeadParameters ::
   HydraContext ->
   HeadParameters
-ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
-  HeadParameters ctxContestationPeriod (ctxParties ctx)
+ctxHeadParameters ctx@HydraContext{ctxContestationPeriod, ctxPonderaPolicyId} =
+  HeadParameters
+    { contestationPeriod = ctxContestationPeriod
+    , parties = ctxParties ctx
+    , ponderaPolicyId = ctxPonderaPolicyId
+    }
 
 -- | Generate a `HydraContext` for a arbitrary number of parties, bounded by
 -- given maximum.
@@ -1023,6 +1028,7 @@ genHydraContextFor n = do
       , ctxNetworkId
       , ctxContestationPeriod
       , ctxScriptRegistry
+      , ctxPonderaPolicyId = Nothing
       }
 
 instance Arbitrary HydraContext where

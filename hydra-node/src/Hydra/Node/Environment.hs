@@ -8,6 +8,7 @@ import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
+import PlutusLedgerApi.V3 (CurrencySymbol)
 
 data Environment = Environment
   { party :: Party
@@ -22,6 +23,8 @@ data Environment = Environment
   , depositPeriod :: DepositPeriod
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
+  , ponderaPolicyId :: Maybe CurrencySymbol
+  -- ^ Optional Pondera NFT policy ID for snapshot verification
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
@@ -35,5 +38,5 @@ instance HasParty Environment where
 
 -- | Make 'HeadParameters' that are consistent with the given 'Environment'.
 mkHeadParameters :: Environment -> HeadParameters
-mkHeadParameters Environment{party, otherParties, contestationPeriod} =
-  HeadParameters{contestationPeriod, parties = party : otherParties}
+mkHeadParameters Environment{party, otherParties, contestationPeriod, ponderaPolicyId} =
+  HeadParameters{contestationPeriod, parties = party : otherParties, ponderaPolicyId}

@@ -65,7 +65,9 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
           , increment = toPlutusTxOutRef depositIn
           }
 
-  HeadParameters{parties, contestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod, ponderaPolicyId} = headParameters
+
+  ponderaCs = fromMaybe (CurrencySymbol "") ponderaPolicyId
 
   headOutput' =
     headOutput
@@ -77,7 +79,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript ponderaCs) InlineScriptDatum headRedeemer
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 

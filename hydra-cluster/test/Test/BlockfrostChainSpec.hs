@@ -46,7 +46,7 @@ import Hydra.Options (
  )
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..)) Nothing
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -91,7 +91,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           someUTxO <- Blockfrost.runBlockfrostM prj $ seedFromFaucetBlockfrost defaultBlockfrostOptions aliceExternalVk 7_000_000
           -- Scenario
           participants <- loadParticipants [Alice]
-          let headParameters = HeadParameters blockfrostcperiod [alice]
+          let headParameters = HeadParameters blockfrostcperiod [alice] Nothing
           postTx $ InitTx{participants, headParameters}
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
 

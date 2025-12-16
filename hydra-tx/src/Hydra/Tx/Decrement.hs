@@ -61,7 +61,9 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
-  HeadParameters{parties, contestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod, ponderaPolicyId} = headParameters
+
+  ponderaCs = fromMaybe (CurrencySymbol "") ponderaPolicyId
 
   headOutput' =
     headOutput
@@ -77,7 +79,7 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript ponderaCs) InlineScriptDatum headRedeemer
 
   headDatumAfter =
     mkTxOutDatumInline $

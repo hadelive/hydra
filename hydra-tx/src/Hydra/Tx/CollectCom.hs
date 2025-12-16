@@ -58,17 +58,19 @@ collectComTx networkId scriptRegistry vk headId headParameters (headInput, initi
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CollectComTx")
  where
-  HeadParameters{parties, contestationPeriod} = headParameters
+  HeadParameters{parties, contestationPeriod, ponderaPolicyId} = headParameters
+
+  ponderaCs = fromMaybe (CurrencySymbol "") ponderaPolicyId
 
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef (Head.validatorScript (CurrencySymbol "")) InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef (Head.validatorScript ponderaCs) InlineScriptDatum headRedeemer
   headScriptRef = fst (headReference scriptRegistry)
   headRedeemer = toScriptData Head.CollectCom
   headOutput =
     TxOut
-      (mkScriptAddress networkId (Head.validatorScript (CurrencySymbol "")))
+      (mkScriptAddress networkId (Head.validatorScript ponderaCs))
       (txOutValue initialHeadOutput <> commitValue)
       headDatumAfter
       ReferenceScriptNone
