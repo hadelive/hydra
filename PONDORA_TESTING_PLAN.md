@@ -564,27 +564,31 @@ docker exec -it sailfish-hydra-node sh
 
 ---
 
-## Next Steps
+## Implementation Status
 
-### Immediate (Phase 3 Fix)
-1. ✅ Write this plan to file
-2. 🔄 Fix `referenceUTxO` population in `Handlers.hs:372`
-3. ⏳ Verify compilation and basic functionality
+### ✅ Completed
+1. ✅ Written comprehensive testing plan
+2. ✅ Fixed `referenceUTxO` population bug in `Handlers.hs:372`
+3. ✅ Added `pondoraRefInput` field to `CloseTx` data type
+4. ✅ Updated all close transaction call sites
+5. ✅ **Implemented API integration for Close command**
+6. ✅ Verified compilation successful
+7. ✅ Committed all changes to git
 
-### Short-term (Phases 1-2)
-4. Build custom Docker image
-5. Deploy to sailfish-network
-6. Verify basic operation
+### 📋 Ready for Testing
+8. 🔄 Build custom Docker image (Phase 1)
+9. ⏳ Deploy to sailfish-network (Phase 2)
+10. ⏳ Test Close API with pondoraRefInput (Phase 5)
+11. ⏳ Verify on-chain transaction (Phase 6)
 
-### Medium-term (Phases 4-5)
-7. Add Pondora TxIn configuration
-8. Implement unit tests
-9. Perform integration testing
+### Recent Commits
 
-### Long-term (Phase 6)
-10. Complete validation checklist
-11. Document findings
-12. Prepare for production deployment
+```bash
+ffb3c62b6  Add pondoraRefInput to Close API command
+eec46e2db  Add pondoraRefInput parameter to CloseTx (Option A)
+b99faeb76  Fix referenceUTxO population bug and add testing plan
+c98204b7e  Add Pondora NFT reference input support to close transaction
+```
 
 ---
 
