@@ -61,12 +61,14 @@ closeTx ::
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   IncrementalAction ->
+  -- | Pondora NFT reference input for snapshot verification
+  Maybe TxIn ->
   Tx
-closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction =
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction pondoraRefInput =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
+      & addTxInsReference (headScriptRef : maybeToList pondoraRefInput) mempty
       & addTxOuts [headOutputAfter]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)

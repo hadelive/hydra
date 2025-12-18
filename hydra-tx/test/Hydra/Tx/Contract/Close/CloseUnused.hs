@@ -89,6 +89,7 @@ healthyCloseCurrentTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
+      Nothing
 
   closeUnusedSnapshot = healthyConfirmedSnapshot healthyCurrentSnapshot
 

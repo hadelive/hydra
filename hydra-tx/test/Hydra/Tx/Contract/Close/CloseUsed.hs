@@ -127,6 +127,7 @@ healthyCloseOutdatedTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
+      Nothing
 
   closeUsedSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
 

@@ -610,7 +610,9 @@ close ctx spendableUTxO headId HeadParameters{parties, contestationPeriod} openV
           }
 
   incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInClose
-  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction
+  -- TODO: Provide actual Pondora NFT reference input
+  let pondoraRefInput = Nothing
+  pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction pondoraRefInput
  where
   Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
