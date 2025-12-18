@@ -398,7 +398,7 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
-    && mustHavePonderaReferenceInput
+    && mustHavePondoraReferenceInput
  where
   OpenDatum
     { parties
@@ -486,23 +486,23 @@ checkClose ctx openBefore redeemer =
               (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
 
-  mustHavePonderaReferenceInput =
-    traceIfFalse $(errorCode PonderaReferenceInputMissing) $
-      case findPonderaReferenceInput (txInfoReferenceInputs txInfo) of
+  mustHavePondoraReferenceInput =
+    traceIfFalse $(errorCode PondoraReferenceInputMissing) $
+      case findPondoraReferenceInput (txInfoReferenceInputs txInfo) of
         Just snapshotHashFromNFT ->
-          traceIfFalse $(errorCode PonderaSnapshotHashMismatch) $
+          traceIfFalse $(errorCode PondoraSnapshotHashMismatch) $
             snapshotHashFromNFT == utxoHash'
         Nothing -> False
 
-  findPonderaReferenceInput :: [TxInInfo] -> Maybe Hash
-  findPonderaReferenceInput refInputs =
-    case L.find hasPonderaNFT refInputs of
+  findPondoraReferenceInput :: [TxInInfo] -> Maybe Hash
+  findPondoraReferenceInput refInputs =
+    case L.find hasPondoraNFT refInputs of
       Just TxInInfo{txInInfoResolved} ->
         extractSnapshotHashFromNFT (txOutValue txInInfoResolved)
       Nothing -> Nothing
 
-  hasPonderaNFT :: TxInInfo -> Bool
-  hasPonderaNFT TxInInfo{txInInfoResolved} =
+  hasPondoraNFT :: TxInInfo -> Bool
+  hasPondoraNFT TxInInfo{txInInfoResolved} =
     let Value val = txOutValue txInInfoResolved
      in case AssocMap.lookup pondoraPolicyId val of
           Just tokens -> not (L.null (AssocMap.toList tokens))
