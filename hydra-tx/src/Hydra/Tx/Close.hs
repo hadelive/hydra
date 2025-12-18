@@ -61,7 +61,7 @@ closeTx ::
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   IncrementalAction ->
-  -- | Pondora NFT reference input for snapshot verification
+  -- | Pondora NFT reference input
   Maybe TxIn ->
   Tx
 closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction pondoraRefInput =

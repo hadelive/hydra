@@ -872,6 +872,7 @@ newCloseTx actor openVersion snapshot = do
     close
       (actorChainContext actor)
       spendableUTxO
+      spendableUTxO
       (mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       openVersion
