@@ -456,11 +456,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO referenceUTxO tx =
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
         Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
         Right decrementTx' -> pure decrementTx'
-    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do
+    CloseTx{headId, headParameters, openVersion, closingSnapshot, pondoraRefInput} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case close ctx spendableUTxO referenceUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
+      case close ctx spendableUTxO pondoraRefInput headId headParameters openVersion closingSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do

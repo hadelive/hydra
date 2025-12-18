@@ -1101,6 +1101,7 @@ onOpenClientClose st =
             , headParameters = parameters
             , openVersion = version
             , closingSnapshot = confirmedSnapshot
+            , pondoraRefInput = Nothing  -- TODO: Accept from API/configuration
             }
       }
  where

@@ -606,8 +606,8 @@ close ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  -- | UTxO to lookup Pondora NFT reference input
-  UTxO ->
+  -- | Pondora NFT reference input (if provided)
+  Maybe TxIn ->
   -- | Head id to close.
   HeadId ->
   -- | Parameters of the head to close.
@@ -624,7 +624,7 @@ close ::
   -- | 'Tx' validity upper bound
   PointInTime ->
   Either CloseTxError Tx
-close ctx spendableUTxO pondoraUTxO headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
+close ctx spendableUTxO pondoraRefInput headId HeadParameters{parties, contestationPeriod} openVersion confirmedSnapshot startSlotNo pointInTime = do
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInClose{headId}
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
@@ -637,7 +637,6 @@ close ctx spendableUTxO pondoraUTxO headId HeadParameters{parties, contestationP
           }
 
   incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInClose
-  let pondoraRefInput = findPondoraRefInput pondoraUTxO
   pure $ closeTx scriptRegistry ownVerificationKey headId openVersion confirmedSnapshot startSlotNo pointInTime openThreadOutput incrementalAction pondoraRefInput
  where
   Snapshot{utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
@@ -1239,7 +1238,7 @@ genCloseTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo = getKnownUTxO stOpen
-  pure (cctx, stOpen, utxo, unsafeClose cctx utxo utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
+  pure (cctx, stOpen, utxo, unsafeClose cctx utxo Nothing headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
 genContestTx = do
@@ -1252,7 +1251,7 @@ genContestTx = do
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx openUTxO openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
+  let txClose = unsafeClose cctx openUTxO Nothing headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
@@ -1274,7 +1273,7 @@ genFanoutTx numParties = do
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
   let openUTxO = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx openUTxO openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let txClose = unsafeClose cctx openUTxO Nothing headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
@@ -1331,7 +1330,7 @@ genStClosed ctx utxo utxoToCommit utxoToDecommit = do
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
   let utxo' = getKnownUTxO stOpen
-  let txClose = unsafeClose cctx utxo' utxo' headId (ctxHeadParameters ctx) v snapshot startSlot pointInTime
+  let txClose = unsafeClose cctx utxo' Nothing headId (ctxHeadParameters ctx) v snapshot startSlot pointInTime
   pure (sn, toFanout, toCommit, toDecommit, snd . fromJust $ observeClose stOpen txClose)
 
 -- ** Danger zone
@@ -1393,8 +1392,8 @@ unsafeClose ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  -- | UTxO to lookup Pondora NFT reference input
-  UTxO ->
+  -- | Pondora NFT reference input (if provided)
+  Maybe TxIn ->
   HeadId ->
   HeadParameters ->
   SnapshotVersion ->
@@ -1402,8 +1401,8 @@ unsafeClose ::
   SlotNo ->
   PointInTime ->
   Tx
-unsafeClose ctx spendableUTxO pondoraUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
-  either (error . show) id $ close ctx spendableUTxO pondoraUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
+unsafeClose ctx spendableUTxO pondoraRefInput headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
+  either (error . show) id $ close ctx spendableUTxO pondoraRefInput headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
 
 unsafeCollect ::
   ChainContext ->
