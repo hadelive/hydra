@@ -439,66 +439,100 @@ checkClose ctx openBefore redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      CloseInitial ->
+      CloseInitial{openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseInitial) $
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseAny{signature} ->
+            -- For CloseInitial, hash is optional (can be Nothing)
+            && verifyOpenDatumHashOptional openDatumHash
+      CloseAny{signature, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
             && alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            -- For non-initial closes, hash is required
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
-      CloseUnusedDec{signature} ->
+      CloseUnusedDec{signature, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' /= emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
               signature
-      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
+      CloseUsedDec{signature, alreadyDecommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
-      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUsedInc{signature, alreadyCommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           alphaUTxOHash' == alreadyCommittedUTxOHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
 
+  -- Verify that the openDatumHash is present and matches the computed hash (REQUIRED)
+  verifyOpenDatumHashRequired :: Maybe Hash -> Bool
+  verifyOpenDatumHashRequired mHash =
+    case mHash of
+      Nothing -> False  -- Hash is required, fail if not provided
+      Just hash -> hash == computedOpenDatumHash
+
+  -- Verify that the openDatumHash matches if provided (OPTIONAL)
+  verifyOpenDatumHashOptional :: Maybe Hash -> Bool
+  verifyOpenDatumHashOptional mHash =
+    case mHash of
+      Nothing -> True  -- Hash is optional
+      Just hash -> hash == computedOpenDatumHash
+
+  computedOpenDatumHash = hashOpenDatum openBefore
+
+  hashOpenDatum :: OpenDatum -> Hash
+  hashOpenDatum od = Builtins.blake2b_256 $ Builtins.serialiseData (toBuiltinData od)
+
   mustHavePondoraReferenceInput =
     traceIfFalse $(errorCode PondoraReferenceInputMissing) $
       case findPondoraReferenceInput (txInfoReferenceInputs txInfo) of
-        Just snapshotHashFromNFT ->
+        Just tokenNameHash ->
           traceIfFalse $(errorCode PondoraSnapshotHashMismatch) $
-            snapshotHashFromNFT == utxoHash'
+            tokenNameHash == expectedPondoraTokenName
         Nothing -> False
+
+  -- Compute expected token name as hash(openDatum, redeemer)
+  expectedPondoraTokenName :: Hash
+  expectedPondoraTokenName =
+    Builtins.blake2b_256 $
+      Builtins.serialiseData (toBuiltinData openBefore)
+        <> Builtins.serialiseData (toBuiltinData redeemer)
 
   findPondoraReferenceInput :: [TxInInfo] -> Maybe Hash
   findPondoraReferenceInput refInputs =
     case L.find hasPondoraNFT refInputs of
       Just TxInInfo{txInInfoResolved} ->
-        extractSnapshotHashFromNFT (txOutValue txInInfoResolved)
+        extractTokenNameFromNFT (txOutValue txInInfoResolved)
       Nothing -> Nothing
 
   hasPondoraNFT :: TxInInfo -> Bool
@@ -508,12 +542,12 @@ checkClose ctx openBefore redeemer =
           Just tokens -> not (L.null (AssocMap.toList tokens))
           Nothing -> False
 
-  extractSnapshotHashFromNFT :: Value -> Maybe Hash
-  extractSnapshotHashFromNFT (Value val) =
+  extractTokenNameFromNFT :: Value -> Maybe Hash
+  extractTokenNameFromNFT (Value val) =
     case AssocMap.lookup pondoraPolicyId val of
       Just tokens ->
         case AssocMap.toList tokens of
-          [(TokenName snapshotHash, 1)] -> Just snapshotHash
+          [(TokenName tokenHash, 1)] -> Just tokenHash
           _ -> Nothing
       Nothing -> Nothing
 

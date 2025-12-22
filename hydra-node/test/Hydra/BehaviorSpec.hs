@@ -121,7 +121,7 @@ spec = parallel $ do
             simulateCommit chain testHeadId alice (utxoRef 1)
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
-            send n1 Close
+            send n1 (Close Nothing)
             waitForNext n1 >>= assertHeadIsClosed
 
     it "does not fanout automatically" $ do
@@ -133,7 +133,7 @@ spec = parallel $ do
             simulateCommit chain testHeadId alice (utxoRef 1)
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
-            send n1 Close
+            send n1 (Close Nothing)
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
             nothingHappensFor n1 100000
@@ -147,7 +147,7 @@ spec = parallel $ do
             simulateCommit chain testHeadId alice (utxoRef 1)
             waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
-            send n1 Close
+            send n1 (Close Nothing)
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
@@ -243,7 +243,7 @@ spec = parallel $ do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead2 chain n1 n2
 
-                send n1 Close
+                send n1 (Close Nothing)
                 waitForNext n2
                   >>= assertHeadIsClosedWith 0
 
@@ -272,7 +272,7 @@ spec = parallel $ do
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
-                send n1 Close
+                send n1 (Close Nothing)
                 waitForNext n1 >>= assertHeadIsClosedWith 1
 
       it "snapshots are created as long as transactions to snapshot exist" $
@@ -572,7 +572,7 @@ spec = parallel $ do
                     _ -> Nothing
                   waitUntil [n2] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO2}
                   waitUntil [n2] $ CommitFinalized{headId = testHeadId, depositTxId = deposit2}
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11, 22]}
@@ -596,7 +596,7 @@ spec = parallel $ do
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
                     _ -> Nothing
                   waitUntil [n1, n2] $ CommitFinalized{headId = testHeadId, depositTxId}
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11]}
@@ -617,7 +617,7 @@ spec = parallel $ do
                       utxoToCommit >>= guard . (11 `member`)
                     _ -> Nothing
 
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntilMatch [n1, n2] $ \case
                     HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 1
                     _ -> Nothing
@@ -636,7 +636,7 @@ spec = parallel $ do
                   deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
@@ -670,7 +670,7 @@ spec = parallel $ do
 
                   waitUntil [n1, n2] $ DecommitApproved{headId = testHeadId, decommitTxId = txId decommitTx, utxoToDecommit = utxoRef 42}
                   waitUntil [n1, n2] $ DecommitFinalized{headId = testHeadId, distributedUTxO = utxoRef 42}
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11]}
@@ -801,7 +801,7 @@ spec = parallel $ do
                   let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
                   send n2 (Decommit{decommitTx})
                   -- Close while the decommit is still in flight
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 42]}
@@ -820,7 +820,7 @@ spec = parallel $ do
                       , decommitTxId = txId decommitTx
                       , utxoToDecommit = utxoRefs [42]
                       }
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
@@ -851,7 +851,7 @@ spec = parallel $ do
                       { headId = testHeadId
                       , distributedUTxO = utxoRef 88
                       }
-                  send n1 Close
+                  send n1 (Close Nothing)
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs []}
@@ -862,7 +862,7 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead2 chain n1 n2
-              send n1 Close
+              send n1 (Close Nothing)
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
