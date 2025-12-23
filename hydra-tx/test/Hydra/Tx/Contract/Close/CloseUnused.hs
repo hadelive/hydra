@@ -5,6 +5,7 @@ module Hydra.Tx.Contract.Close.CloseUnused where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
+import Codec.CBOR.Write (toStrictByteString)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
@@ -38,7 +39,8 @@ import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
-import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
+import PlutusLedgerApi.V3 (BuiltinByteString, POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
+import Cardano.Crypto.Hash (Blake2b_256, hashToBytes, hashWith)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
@@ -89,6 +91,7 @@ healthyCloseCurrentTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
+      Nothing
 
   closeUnusedSnapshot = healthyConfirmedSnapshot healthyCurrentSnapshot
 
@@ -126,14 +129,22 @@ healthyCurrentSnapshot =
 
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =
-  Head.Open
-    Head.OpenDatum
-      { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
-      , contestationPeriod = healthyContestationPeriod
-      , headId = toPlutusCurrencySymbol Fixture.testPolicyId
-      , version = toInteger healthyCurrentSnapshotVersion
-      }
+  Head.Open healthyCurrentOpenDatumValue
+
+healthyCurrentOpenDatumValue :: Head.OpenDatum
+healthyCurrentOpenDatumValue =
+  Head.OpenDatum
+    { parties = healthyOnChainParties
+    , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
+    , contestationPeriod = healthyContestationPeriod
+    , headId = toPlutusCurrencySymbol Fixture.testPolicyId
+    , version = toInteger healthyCurrentSnapshotVersion
+    }
+
+-- | Compute the hash of the OpenDatum for use in CloseRedeemer
+healthyCurrentOpenDatumHash :: BuiltinByteString
+healthyCurrentOpenDatumHash =
+  toBuiltin $ hashToBytes $ hashWith @Blake2b_256 id $ toStrictByteString $ toCBOR $ getScriptData $ toScriptData healthyCurrentOpenDatumValue
 
 data CloseMutation
   = -- | Ensures collectCom does not allow any output address but νHead.
@@ -222,7 +233,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature}
+        pure $ Head.Close Head.CloseUnusedDec{signature, openDatumHash = Just healthyCurrentOpenDatumHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -289,6 +300,7 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           Head.CloseUnusedDec
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
+                            , openDatumHash = Nothing
                             }
                       )
                 )

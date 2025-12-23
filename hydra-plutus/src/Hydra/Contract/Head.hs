@@ -38,12 +38,13 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (lovelaceValue)
 import PlutusLedgerApi.V3 (
   Address,
-  CurrencySymbol,
+  CurrencySymbol (..),
   Datum (..),
   Extended (Finite),
   Interval (..),
@@ -69,6 +70,12 @@ import PlutusTx.List qualified as L
 
 type DatumType = State
 type RedeemerType = Input
+
+-- | Hardcoded Pondora NFT policy ID for snapshot verification
+-- TODO: Replace with actual Pondora policy ID when available
+{-# INLINEABLE pondoraPolicyId #-}
+pondoraPolicyId :: CurrencySymbol
+pondoraPolicyId = CurrencySymbol "a1b2c3d4e5f6789012345678901234567890123456789012345678901234"
 
 --------------------------------------------------------------------------------
 -- Validators
@@ -391,6 +398,7 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveValue
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustHavePondoraReferenceInput
  where
   OpenDatum
     { parties
@@ -431,52 +439,117 @@ checkClose ctx openBefore redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      CloseInitial ->
+      CloseInitial{openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseInitial) $
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseAny{signature} ->
+            -- For CloseInitial, hash is optional (can be Nothing)
+            && verifyOpenDatumHashOptional openDatumHash
+      CloseAny{signature, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
             && alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            -- For non-initial closes, hash is required
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash)
               signature
-      CloseUnusedDec{signature} ->
+      CloseUnusedDec{signature, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' /= emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash')
               signature
-      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
+      CloseUsedDec{signature, alreadyDecommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash)
               signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
-      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUsedInc{signature, alreadyCommittedUTxOHash, openDatumHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           alphaUTxOHash' == alreadyCommittedUTxOHash
             && omegaUTxOHash' == emptyHash
+            && verifyOpenDatumHashRequired openDatumHash
             && verifySnapshotSignature
               parties
               (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash)
               signature
+
+  -- Verify that the openDatumHash is present and matches the computed hash (REQUIRED)
+  verifyOpenDatumHashRequired :: Maybe Hash -> Bool
+  verifyOpenDatumHashRequired mHash =
+    case mHash of
+      Nothing -> False  -- Hash is required, fail if not provided
+      Just hash -> hash == computedOpenDatumHash
+
+  -- Verify that the openDatumHash matches if provided (OPTIONAL)
+  verifyOpenDatumHashOptional :: Maybe Hash -> Bool
+  verifyOpenDatumHashOptional mHash =
+    case mHash of
+      Nothing -> True  -- Hash is optional
+      Just hash -> hash == computedOpenDatumHash
+
+  computedOpenDatumHash = hashOpenDatum openBefore
+
+  hashOpenDatum :: OpenDatum -> Hash
+  hashOpenDatum od = Builtins.blake2b_256 $ Builtins.serialiseData (toBuiltinData od)
+
+  mustHavePondoraReferenceInput =
+    traceIfFalse $(errorCode PondoraReferenceInputMissing) $
+      case findPondoraReferenceInput (txInfoReferenceInputs txInfo) of
+        Just tokenNameHash ->
+          traceIfFalse $(errorCode PondoraSnapshotHashMismatch) $
+            tokenNameHash == expectedPondoraTokenName
+        Nothing -> False
+
+  -- Compute expected token name as hash(openDatum, redeemer)
+  expectedPondoraTokenName :: Hash
+  expectedPondoraTokenName =
+    Builtins.blake2b_256 $
+      Builtins.serialiseData (toBuiltinData openBefore)
+        <> Builtins.serialiseData (toBuiltinData redeemer)
+
+  findPondoraReferenceInput :: [TxInInfo] -> Maybe Hash
+  findPondoraReferenceInput refInputs =
+    case L.find hasPondoraNFT refInputs of
+      Just TxInInfo{txInInfoResolved} ->
+        extractTokenNameFromNFT (txOutValue txInInfoResolved)
+      Nothing -> Nothing
+
+  hasPondoraNFT :: TxInInfo -> Bool
+  hasPondoraNFT TxInInfo{txInInfoResolved} =
+    let Value val = txOutValue txInInfoResolved
+     in case AssocMap.lookup pondoraPolicyId val of
+          Just tokens -> not (L.null (AssocMap.toList tokens))
+          Nothing -> False
+
+  extractTokenNameFromNFT :: Value -> Maybe Hash
+  extractTokenNameFromNFT (Value val) =
+    case AssocMap.lookup pondoraPolicyId val of
+      Just tokens ->
+        case AssocMap.toList tokens of
+          [(TokenName tokenHash, 1)] -> Just tokenHash
+          _ -> Nothing
+      Nothing -> Nothing
 
   checkDeadline =
     traceIfFalse $(errorCode IncorrectClosedContestationDeadline) $
@@ -799,14 +872,15 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
 {-# INLINEABLE verifyPartySignature #-}
 
+-- | Compiled validator with hardcoded Pondora policy ID
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =
-  $$(PlutusTx.compile [||wrap headValidator||])
- where
-  wrap = wrapValidator @DatumType @RedeemerType
+  $$(PlutusTx.compile [||wrapValidator @DatumType @RedeemerType headValidator||])
 
+-- | Get the head validator script
 validatorScript :: PlutusScript
-validatorScript = PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
+validatorScript =
+  PlutusScriptSerialised $ serialiseCompiledCode compiledValidator
 
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
 decodeHeadOutputClosedDatum ctx =

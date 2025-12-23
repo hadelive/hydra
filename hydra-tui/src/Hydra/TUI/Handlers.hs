@@ -400,7 +400,7 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
         EvKey KEnter [] -> do
           let selected = formState i
           if selected
-            then liftIO $ sendInput hydraClient Close
+            then liftIO $ sendInput hydraClient (Close Nothing)
             else put OpenHome
         _ -> zoom confirmingCloseFormL $ handleFormEvent (VtyEvent e)
     SelectingUTxO i ->
