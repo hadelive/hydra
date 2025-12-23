@@ -269,7 +269,7 @@ computeFanOutCost = do
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
-    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) Nothing headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx

@@ -4,7 +4,6 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api (TxIn)
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -14,7 +13,7 @@ data ClientInput tx
   | NewTx {transaction :: tx}
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}
-  | Close {pondoraRefInput :: Maybe TxIn}
+  | Close
   | SafeClose
   | Contest
   | Fanout
@@ -38,7 +37,7 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     NewTx tx -> NewTx <$> shrink tx
     Recover tx -> Recover <$> shrink tx
     Decommit tx -> Decommit <$> shrink tx
-    Close refInput -> Close <$> shrink refInput
+    Close -> []
     SafeClose -> []
     Contest -> []
     Fanout -> []

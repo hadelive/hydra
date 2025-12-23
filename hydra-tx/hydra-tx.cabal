@@ -189,7 +189,6 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-core
-    , cborg
     , containers
     , hspec
     , hspec-golden-aeson

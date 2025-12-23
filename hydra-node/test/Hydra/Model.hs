@@ -837,7 +837,7 @@ performClose party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForOpen thisNode
-  party `sendsInput` Input.Close Nothing
+  party `sendsInput` Input.Close
 
   lift . waitUntilMatch (elems nodes) $ \case
     HeadIsClosed{} -> Just ()

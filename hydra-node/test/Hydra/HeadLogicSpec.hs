@@ -1127,7 +1127,7 @@ spec =
                               , decommitTx = Nothing
                               , version = 0
                               }
-                        , chainState = ChainStateAt{spendableUTxO = mempty, referenceUTxO = mempty, recordedAt = Just $ ChainPoint 0 blockHash}
+                        , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Just $ ChainPoint 0 blockHash}
                         , headId = testHeadId
                         , headSeed = testHeadSeed
                         }
@@ -1146,7 +1146,7 @@ spec =
                   { chainEvent =
                       Observation
                         { observedTx
-                        , newChainState = ChainStateAt{spendableUTxO = mempty, referenceUTxO = mempty, recordedAt = Just $ ChainPoint slot nextBlockHash}
+                        , newChainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Just $ ChainPoint slot nextBlockHash}
                         }
                   }
             deposit1 = OnDepositTx{headId = testHeadId, depositTxId = txId depositTx1, deposited = deposited1, created = depositTime 1, deadline}

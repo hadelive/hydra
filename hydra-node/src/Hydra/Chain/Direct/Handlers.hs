@@ -174,11 +174,11 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
     { mkChainState = initialChainState
     , postTx = \tx -> do
-        ChainStateAt{spendableUTxO, referenceUTxO} <- atomically getLatest
+        ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
         vtx <-
-          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO referenceUTxO tx)
+          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , draftCommitTx = \headId commitBlueprintTx -> do
@@ -361,7 +361,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Just event -> callback event
 
   maybeObserveSomeTx timeHandle point tx = atomically $ do
-    ChainStateAt{spendableUTxO, referenceUTxO} <- getLatest
+    ChainStateAt{spendableUTxO} <- getLatest
     let observation = observeHeadTx networkId spendableUTxO tx
     case convertObservation timeHandle observation of
       Nothing -> pure Nothing
@@ -369,7 +369,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         let newChainState =
               ChainStateAt
                 { spendableUTxO = adjustUTxO tx spendableUTxO
-                , referenceUTxO = referenceUTxO  -- Keep unchanged: reference inputs are not consumed
                 , recordedAt = Just point
                 }
         pushNew newChainState
@@ -410,11 +409,9 @@ prepareTxToPost ::
   ChainContext ->
   -- | Spendable UTxO
   UTxOType Tx ->
-  -- | Reference UTxO (for Pondora NFT lookup)
-  UTxOType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx spendableUTxO referenceUTxO tx =
+prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
   case tx of
     InitTx{participants, headParameters} ->
       getSeedInput wallet >>= \case
@@ -456,11 +453,11 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO referenceUTxO tx =
       case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
         Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
         Right decrementTx' -> pure decrementTx'
-    CloseTx{headId, headParameters, openVersion, closingSnapshot, pondoraRefInput} -> do
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do
       (currentSlot, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       upperBound <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case close ctx spendableUTxO pondoraRefInput headId headParameters openVersion closingSnapshot currentSlot upperBound of
+      case close ctx spendableUTxO headId headParameters openVersion closingSnapshot currentSlot upperBound of
         Left _ -> throwIO (FailedToConstructCloseTx @Tx)
         Right closeTx -> pure closeTx
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do

@@ -77,7 +77,6 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
-import Hydra.Cardano.Api (TxIn)
 import Hydra.Tx (
   HeadId,
   HeadSeed,
@@ -1086,10 +1085,9 @@ isLeader HeadParameters{parties} p sn =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose ::
-  Maybe TxIn ->
   OpenState tx ->
   Outcome tx
-onOpenClientClose pondoraRefInput st =
+onOpenClientClose st =
   -- Spec: η ← combine(̅S.𝑈)
   --       η𝛼 ← combine(S.𝑈𝛼)
   --       ηω ← combine(S.𝑈ω)
@@ -1103,7 +1101,6 @@ onOpenClientClose pondoraRefInput st =
             , headParameters = parameters
             , openVersion = version
             , closingSnapshot = confirmedSnapshot
-            , pondoraRefInput
             }
       }
  where
@@ -1563,10 +1560,10 @@ handleClientInput env ledger _now currentSlot pendingDeposits st ev = case (st, 
   (Initial initialState, ClientInput Abort) ->
     onInitialClientAbort initialState
   -- Open
-  (Open openState, ClientInput (Close pondoraRefInput)) ->
-    onOpenClientClose pondoraRefInput openState
+  (Open openState, ClientInput Close) ->
+    onOpenClientClose openState
   (Open openState, ClientInput SafeClose) ->
-    onOpenClientClose Nothing openState
+    onOpenClientClose openState
   (Open{}, ClientInput (NewTx tx)) ->
     onOpenClientNewTx tx
   (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->

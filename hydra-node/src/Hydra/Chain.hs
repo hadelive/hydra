@@ -23,7 +23,6 @@ import Hydra.Cardano.Api (
   LedgerEra,
   PolicyAssets,
   PolicyId,
-  TxIn,
   Value,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
@@ -85,7 +84,6 @@ data PostChainTx tx
       , headParameters :: HeadParameters
       , openVersion :: SnapshotVersion
       , closingSnapshot :: ConfirmedSnapshot tx
-      , pondoraRefInput :: Maybe TxIn
       }
   | ContestTx
       { headId :: HeadId
@@ -112,7 +110,7 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
     RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
       RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
     DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
-    CloseTx{headId, headParameters, openVersion, closingSnapshot, pondoraRefInput} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot <*> shrink pondoraRefInput
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 

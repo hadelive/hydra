@@ -31,8 +31,7 @@ import Hydra.Chain (
     closingSnapshot,
     headId,
     headParameters,
-    openVersion,
-    pondoraRefInput
+    openVersion
   ),
   initHistory,
  )
@@ -241,7 +240,6 @@ mockChainAndNetwork tr seedKeys commits = do
                   , headParameters
                   , openVersion = 0
                   , closingSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
-                  , pondoraRefInput = Nothing
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 

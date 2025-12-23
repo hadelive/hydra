@@ -82,21 +82,13 @@ PlutusTx.unstableMakeIsData ''State
 data CloseRedeemer
   = -- | Initial snapshot is used to close.
     CloseInitial
-      { openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification (Nothing for initial close)
-      }
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
-      { signature :: [Signature]
-      , openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification
-      }
+      {signature :: [Signature]}
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedDec
@@ -104,8 +96,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
-      , openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedInc
@@ -113,8 +103,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyCommittedUTxOHash :: Hash
       -- ^ UTxO which was signed but not committed ηα
-      , openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
@@ -122,8 +110,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyCommittedUTxOHash :: Hash
       -- ^ UTxO which was already committed ηα
-      , openDatumHash :: Maybe Hash
-      -- ^ Hash of the openDatum for Pondora verification
       }
   deriving stock (Show, Generic)
 
