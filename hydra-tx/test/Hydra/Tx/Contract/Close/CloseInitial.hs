@@ -69,6 +69,7 @@ healthyCloseInitialTx =
       healthyCloseUpperBoundPointInTime
       openThreadOutput
       incrementalAction
+      Nothing
 
   incrementalAction =
     fromMaybe NoThing $

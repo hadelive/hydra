@@ -4,6 +4,10 @@ module Hydra.Tx.Close where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Codec.CBOR.Write (toStrictByteString)
+import Codec.CBOR.Encoding (encodePreEncoded)
+import Cardano.Ledger.Binary (serialize')
+import qualified Data.ByteString.Lazy as LBS
 
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -27,7 +31,9 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
+import Cardano.Crypto.Hash (Blake2b_256, hashToBytes, hashWith)
+import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Construction
 
@@ -61,12 +67,14 @@ closeTx ::
   -- | Everything needed to spend the Head state-machine output.
   OpenThreadOutput ->
   IncrementalAction ->
+  -- | Pondora NFT reference input
+  Maybe TxIn ->
   Tx
-closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction =
+closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endSlotNo, utcTime) openThreadOutput incrementalAction pondoraRefInput =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
+      & addTxInsReference (headScriptRef : maybeToList pondoraRefInput) mempty
       & addTxOuts [headOutputAfter]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
@@ -89,9 +97,24 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
 
   headRedeemer = toScriptData $ Head.Close closeRedeemer
 
+  -- Extract OpenDatum from the head output and compute its hash
+  -- For non-initial closes, this MUST succeed (hash is required on-chain)
+  openDatumHash :: Maybe BuiltinByteString
+  openDatumHash =
+    case txOutScriptData (fromCtxUTxOTxOut headOutputBefore) >>= fromScriptData of
+      Just (Head.Open openDatum) ->
+        -- Hash the serialized ScriptData to match on-chain: blake2b_256(serialiseData(toBuiltinData openDatum))
+        Just $ toBuiltin $ hashToBytes $ hashWith @Blake2b_256 id $ toStrictByteString $ toCBOR $ getScriptData $ toScriptData openDatum
+      _ ->
+        -- For initial snapshot, no OpenDatum is expected (Initial state)
+        -- For confirmed snapshots, this should never happen - the head should be in Open state
+        case confirmedSnapshot of
+          InitialSnapshot{} -> Nothing
+          ConfirmedSnapshot{} -> error "Expected Open datum in head output for confirmed snapshot close"
+
   closeRedeemer =
     case confirmedSnapshot of
-      InitialSnapshot{} -> Head.CloseInitial
+      InitialSnapshot{} -> Head.CloseInitial{openDatumHash = Nothing}
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
         case incrementalAction of
           ToCommit utxo' ->
@@ -100,21 +123,32 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                 Head.CloseUnusedInc
                   { signature = toPlutusSignatures signatures
                   , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  , openDatumHash  -- MUST be Just hash, enforced above
                   }
               else
                 Head.CloseUsedInc
                   { signature = toPlutusSignatures signatures
                   , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  , openDatumHash  -- MUST be Just hash, enforced above
                   }
           ToDecommit utxo' ->
             if version == openVersion
-              then Head.CloseUnusedDec{signature = toPlutusSignatures signatures}
+              then
+                Head.CloseUnusedDec
+                  { signature = toPlutusSignatures signatures
+                  , openDatumHash  -- MUST be Just hash, enforced above
+                  }
               else
                 Head.CloseUsedDec
                   { signature = toPlutusSignatures signatures
                   , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  , openDatumHash  -- MUST be Just hash, enforced above
                   }
-          NoThing -> Head.CloseAny{signature = toPlutusSignatures signatures}
+          NoThing ->
+            Head.CloseAny
+              { signature = toPlutusSignatures signatures
+              , openDatumHash  -- MUST be Just hash, enforced above
+              }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore

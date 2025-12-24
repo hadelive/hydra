@@ -1,0 +1,146 @@
+# This workflow builds and pushes docker images to Docker Hub
+name: Docker Hub Push
+
+# Limit concurrent runs of this workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: 
+      - "modify-close-1"  # Your current branch
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        type: string
+        description: 'Branch or commit to build'
+        required: true
+        default: "modify-close-1"
+      tag_suffix:
+        type: string
+        description: 'Custom tag suffix (e.g., "test-1")'
+        required: false
+        default: ""
+      docker_username:
+        type: string
+        description: 'Docker Hub username'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  docker-hub:
+    strategy:
+      matrix:
+        target: [ hydra-node ]
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref_name || github.ref }}
+
+    - name: 🐳 Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ github.event.inputs.docker_username || secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🔨 Build and push to Docker Hub
+      run: |
+        # Set Docker Hub username
+        DOCKER_USERNAME="${{ github.event.inputs.docker_username || secrets.DOCKER_USERNAME }}"
+        
+        if [[ -z "$DOCKER_USERNAME" ]]; then
+          echo "❌ Docker username not provided. Set DOCKER_USERNAME secret or provide as input."
+          exit 1
+        fi
+        
+        # Build the Docker image using Nix
+        echo "Building Hydra node Docker image with Nix..."
+        nix build .#docker-${{ matrix.target }} --print-build-logs
+        
+        # Load the image into Docker
+        docker load < result
+        
+        # Create tags
+        BRANCH_NAME=${GITHUB_REF_NAME}
+        COMMIT_SHORT=${GITHUB_SHA:0:7}
+        
+        BASE_TAG="${DOCKER_USERNAME}/hydra-node"
+        DEV_TAG="${BASE_TAG}:dev-${BRANCH_NAME}-${COMMIT_SHORT}"
+        BRANCH_TAG="${BASE_TAG}:dev-${BRANCH_NAME}"
+        MODIFIED_TAG="${BASE_TAG}:local-modified"
+        
+        # Add custom suffix if provided
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          CUSTOM_TAG="${BASE_TAG}:${{ github.event.inputs.tag_suffix }}"
+        fi
+        
+        echo "Tagging and pushing images:"
+        echo "  - ${DEV_TAG}"
+        echo "  - ${BRANCH_TAG}"  
+        echo "  - ${MODIFIED_TAG}"
+        
+        # Tag the images
+        docker tag ${{ matrix.target }} ${DEV_TAG}
+        docker tag ${{ matrix.target }} ${BRANCH_TAG}
+        docker tag ${{ matrix.target }} ${MODIFIED_TAG}
+        
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          echo "  - ${CUSTOM_TAG}"
+          docker tag ${{ matrix.target }} ${CUSTOM_TAG}
+        fi
+        
+        # Push to Docker Hub
+        echo "Pushing to Docker Hub..."
+        docker push ${DEV_TAG}
+        docker push ${BRANCH_TAG}
+        docker push ${MODIFIED_TAG}
+        
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          docker push ${CUSTOM_TAG}
+        fi
+        
+        echo "✅ Images pushed successfully to Docker Hub!"
+        
+        # Show final images
+        docker images | grep "${DOCKER_USERNAME}/hydra-node"
+
+    - name: 📋 Push summary
+      run: |
+        DOCKER_USERNAME="${{ github.event.inputs.docker_username || secrets.DOCKER_USERNAME }}"
+        
+        echo "## 🐳 Docker Images Pushed to Docker Hub" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Your modified Hydra node has been built and pushed to Docker Hub!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Available Images:**" >> $GITHUB_STEP_SUMMARY
+        echo "- \`${DOCKER_USERNAME}/hydra-node:dev-${GITHUB_REF_NAME}-${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`${DOCKER_USERNAME}/hydra-node:dev-${GITHUB_REF_NAME}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`${DOCKER_USERNAME}/hydra-node:local-modified\`" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          echo "- \`${DOCKER_USERNAME}/hydra-node:${{ github.event.inputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**To use in your sailfish-network:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
+        echo "services:" >> $GITHUB_STEP_SUMMARY
+        echo "  hydra-node:" >> $GITHUB_STEP_SUMMARY
+        echo "    image: ${DOCKER_USERNAME}/hydra-node:local-modified" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Pull command:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ${DOCKER_USERNAME}/hydra-node:local-modified" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

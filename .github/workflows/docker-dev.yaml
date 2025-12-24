@@ -1,0 +1,104 @@
+# This workflow builds docker images for development branches
+# Builds only - does not push to registry (useful for testing build process)
+name: Docker Dev Build (Build Only)
+
+# Limit concurrent runs of this workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: 
+      - "modify-close-1"  # Your current branch
+      - "feature/*"       # Any feature branches
+      - "dev/*"          # Any dev branches
+  workflow_dispatch:
+    inputs:
+      ref_name:
+        type: string
+        description: 'Branch or commit to build'
+        required: true
+        default: "modify-close-1"
+      tag_suffix:
+        type: string
+        description: 'Custom tag suffix (e.g., "test-1" -> hydra-node:dev-test-1)'
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  docker-dev:
+    strategy:
+      matrix:
+        target: [ hydra-node ]  # Just hydra-node for development
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.ref_name || github.ref }}
+
+    # Login step removed - build only, no registry push
+
+    - name: ❄ Setup Nix/Cachix
+      uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+
+    - name: 🔨 Build development image (build only)
+      run: |
+        # Build the Docker image using Nix
+        echo "Building Hydra node Docker image with Nix..."
+        nix build .#docker-${{ matrix.target }} --print-build-logs
+        
+        # Load the image into Docker
+        docker load < result
+        
+        # Show what was built
+        echo "Build completed successfully!"
+        echo "Image loaded into local Docker:"
+        docker images | grep ${{matrix.target}}
+        
+        # Create development tags locally (not pushed)
+        BRANCH_NAME=${GITHUB_REF_NAME}
+        COMMIT_SHORT=${GITHUB_SHA:0:7}
+        DEV_TAG="dev-${BRANCH_NAME}-${COMMIT_SHORT}"
+        
+        if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+          DEV_TAG="dev-${{ github.event.inputs.tag_suffix }}-${COMMIT_SHORT}"
+        fi
+        
+        echo "Tagging image locally:"
+        echo "  - ${{matrix.target}}:${DEV_TAG}"
+        echo "  - ${{matrix.target}}:local-modified"
+        
+        docker tag ${{matrix.target}} ${{matrix.target}}:${DEV_TAG}
+        docker tag ${{matrix.target}} ${{matrix.target}}:local-modified
+        
+        # Show final images
+        docker images | grep ${{matrix.target}}
+
+    - name: 📋 Build summary
+      run: |
+        echo "## 🐳 Development Docker Image Built (Local Only)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Your modified Hydra node has been successfully built in the CI environment." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Build Details:**" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Nix build completed successfully" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Docker image loaded locally" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Image tagged with development labels" >> $GITHUB_STEP_SUMMARY
+        echo "- ⚠️  Image **NOT pushed** to registry (build-only mode)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Local Tags Created:**" >> $GITHUB_STEP_SUMMARY
+        echo "- \`hydra-node:dev-${GITHUB_REF_NAME}-${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- \`hydra-node:local-modified\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**To use this image:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. The build verified your code compiles successfully" >> $GITHUB_STEP_SUMMARY
+        echo "2. To actually use it, you'll need to push to registry or build locally" >> $GITHUB_STEP_SUMMARY
+        echo "3. Consider enabling registry push if the build works as expected" >> $GITHUB_STEP_SUMMARY

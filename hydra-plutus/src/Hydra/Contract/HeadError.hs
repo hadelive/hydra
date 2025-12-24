@@ -60,6 +60,8 @@ data HeadError
   | FailedCloseUsedDec
   | FailedCloseUnusedInc
   | FailedCloseUsedInc
+  | PondoraReferenceInputMissing
+  | PondoraSnapshotHashMismatch
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -124,3 +126,5 @@ instance ToErrorCode HeadError where
     FailedCloseUnusedInc -> "H52"
     FailedCloseUsedInc -> "H53"
     FanoutUTxOToCommitHashMismatch -> "H54"
+    PondoraReferenceInputMissing -> "H55"
+    PondoraSnapshotHashMismatch -> "H56"
