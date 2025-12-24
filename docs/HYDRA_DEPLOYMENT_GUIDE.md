@@ -23,6 +23,123 @@ This guide covers the end-to-end process of:
 
 ---
 
+## Step 0: Generate Signing Keys (First Time Setup)
+
+If you don't have signing keys yet, generate them before starting.
+
+### 0.1 Generate Cardano Keys
+
+Use `cardano-cli` to generate payment keys:
+
+```bash
+# Generate Cardano payment key pair
+cardano-cli address key-gen \
+  --verification-key-file cardano.vk \
+  --signing-key-file cardano.sk
+
+# Generate payment address (for preprod testnet)
+cardano-cli address build \
+  --payment-verification-key-file cardano.vk \
+  --testnet-magic 1 \
+  --out-file cardano.addr
+
+# Display your address
+cat cardano.addr
+```
+
+**Fund your address:** Send test ADA from the [Cardano Testnet Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet/) to this address.
+
+### 0.2 Generate Hydra Keys
+
+Use `hydra-node` to generate Hydra signing keys:
+
+```bash
+# Using Docker
+docker run --rm \
+  -v $(pwd):/keys \
+  hadelive/hydra-node:local-modified \
+  gen-hydra-key \
+  --output-file /keys/hydra
+
+# This creates:
+# - hydra.sk (signing key)
+# - hydra.vk (verification key)
+```
+
+Or using local build:
+
+```bash
+cd /Users/hoangvu/hade/no-witness-labs/hydra
+nix develop
+
+# Generate Hydra key pair
+hydra-node gen-hydra-key --output-file hydra
+
+# This creates:
+# - hydra.sk (signing key)
+# - hydra.vk (verification key)
+```
+
+### 0.3 Organize Your Keys
+
+Create a secure keys directory:
+
+```bash
+# For Sailfish deployment
+mkdir -p /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys
+chmod 700 /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys
+
+# Move or copy keys
+mv cardano.sk /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys/sailfish-node-1-cardano.sk
+mv cardano.vk /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys/sailfish-node-1-cardano.vk
+mv hydra.sk /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys/sailfish-node-1-hydra.sk
+mv hydra.vk /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys/sailfish-node-1-hydra.vk
+
+# Secure the keys
+chmod 600 /Users/hoangvu/hade/no-witness-labs/sailfish-network/keys/*.sk
+```
+
+### 0.4 Get Blockfrost API Key
+
+1. Sign up at [Blockfrost.io](https://blockfrost.io/)
+2. Create a new project for **Cardano Preprod**
+3. Copy your API key
+4. Save it securely:
+
+```bash
+echo "your-blockfrost-api-key" > /Users/hoangvu/hade/no-witness-labs/sailfish-network/blockfrost-preprod.txt
+chmod 600 /Users/hoangvu/hade/no-witness-labs/sailfish-network/blockfrost-preprod.txt
+```
+
+### 0.5 Security Best Practices
+
+**⚠️ Important Security Notes:**
+
+- **Never commit `.sk` files** to git (signing keys are private!)
+- **Never share your signing keys** with anyone
+- **Keep backups** of your keys in a secure location
+- **Use `.gitignore`** to exclude:
+  ```gitignore
+  *.sk
+  *-cardano.vk
+  *-hydra.vk
+  blockfrost*.txt
+  ```
+
+**Key File Permissions:**
+```bash
+# Signing keys (private)
+chmod 600 *.sk
+
+# Verification keys (can be shared with other Hydra participants)
+chmod 644 *.vk
+
+# Keys directory
+chmod 700 keys/
+```
+
+---
+
 ## Step 1: Modify Hydra Code
 
 ### 1.1 Make Your Changes
